@@ -1,5 +1,12 @@
 package options;
 
+#if MODS_ALLOWED
+import flixel.util.FlxStringUtil;
+import sys.FileSystem;
+import sys.io.File;
+import haxe.Json;
+#end
+
 import objects.CheckboxThingie;
 import objects.AttachedText;
 import objects.Character;
@@ -18,6 +25,9 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	private var boyfriend:Character = null;
 	private var descBox:FlxSprite;
 	private var descText:FlxText;
+	#if MODS_ALLOWED
+	private var modDisp:FlxText;
+	#end
 
 	public var title:String;
 	public var rpcTitle:String;
@@ -65,6 +75,36 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		descText.borderSize = 2.4;
 		add(descText);
 
+		#if MODS_ALLOWED
+		modDisp = new FlxText(descBox.getGraphicMidpoint().x, descBox.y, descText.fieldWidth, "", 20);
+		modDisp.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		modDisp.scrollFactor.set();
+		modDisp.borderSize = 1.4;
+		add(modDisp);
+
+		for (folder in Paths.getActiveModsDir(true)) {
+			var path:String = haxe.io.Path.join([Paths.mods(), folder, 'options', FlxStringUtil.getClassName(this, true)]);
+			if(FileSystem.exists(path)) for(file in FileSystem.readDirectory(path)) if(file.endsWith('.json')) {
+				var rawJson = File.getContent(path + '/' + file);
+				if (rawJson != null && rawJson.length > 0) {
+					var json = Json.parse(rawJson);
+					var modName:String = Json.parse(File.getContent(Paths.mods(folder + '/pack.json'))).name;
+					var option:Option = new Option(
+						file.replace('.json', ''), folder != '' ? 'An option for ' + modName :
+						'An option inside the Main Global Folder.', getMainField(json),
+						getMainField(json), getMainField(json), getMainField(json),
+						[folder, folder != '' ? modName : '']
+					);
+					
+					for (field in Reflect.fields(json)) {
+						Reflect.setField(option, field, Reflect.field(json, field));
+					}
+					addOption(option);
+				}
+			}
+		}
+		#end
+
 		for (i in 0...optionsArray.length)
 		{
 			var optionText:Alphabet = new Alphabet(290, 260, optionsArray[i].name, false);
@@ -102,6 +142,18 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		changeSelection();
 		reloadCheckboxes();
 	}
+
+	#if MODS_ALLOWED
+	var loops:Int = 0;
+	var mainFields:Array<String> = ['variable', 'type', 'defaultValue', 'options'];
+	function getMainField(json:Dynamic):Dynamic {  // Just to simplify the work up there  - Nex_isDumb
+		if (loops == mainFields.length) loops = 0;
+		var daVal:Dynamic = Reflect.field(json, mainFields[loops]);
+		Reflect.deleteField(json, mainFields[loops]);
+		loops++;
+		return daVal;
+	}
+	#end
 
 	public function addOption(option:Option) {
 		if(optionsArray == null || optionsArray.length < 1) optionsArray = [];
@@ -296,6 +348,15 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		descBox.setPosition(descText.x - 10, descText.y - 10);
 		descBox.setGraphicSize(Std.int(descText.width + 20), Std.int(descText.height + 25));
 		descBox.updateHitbox();
+
+		#if MODS_ALLOWED
+		if (optionsArray[curSelected].fromJson != null) {
+			modDisp.text = optionsArray[curSelected].fromJson[1];
+			if (modDisp.text == '') modDisp.text = 'Main Global Folder';
+			modDisp.setPosition(descBox.getGraphicMidpoint().x, descBox.y - 15);
+		}
+		else modDisp.text = '';
+		#end
 
 		if(boyfriend != null)
 		{

@@ -7,6 +7,10 @@ import llua.State;
 import llua.Convert;
 #end
 
+#if MODS_ALLOWED
+import haxe.Json;
+#end
+
 #if sys
 import sys.FileSystem;
 import sys.io.File;
@@ -168,6 +172,75 @@ class ExtraFunctions
 				return;
 			}
 			funk.luaTrace('setDataFromSave: Save file not initialized: ' + name, false, false, FlxColor.RED);
+		});
+		Lua_helper.add_callback(lua, "loadJsonOptions", function(inclMainFol:Bool = true, ?modNames:Array<String> = null) {
+			#if MODS_ALLOWED
+			if (modNames == null) modNames = [];
+			if (modNames.length < 1) modNames.push(Paths.currentModDirectory);
+			for(mod in Paths.getModDirectories(inclMainFol)) if(modNames.contains(mod) || (inclMainFol && mod == '')) {
+				var path:String = haxe.io.Path.join([Paths.mods(), mod, 'options']);
+				if(FileSystem.exists(path)) for(file in FileSystem.readDirectory(path)) {
+					var folder:String = path + '/' + file;
+					if(FileSystem.isDirectory(folder)) for(rawFile in FileSystem.readDirectory(folder)) if(rawFile.endsWith('.json')) {
+						var rawJson = File.getContent(folder + '/' + rawFile);
+						if (rawJson != null && rawJson.length > 0) {
+							var json = Json.parse(rawJson);
+							if (!ClientPrefs.data.modsOptsSaves.exists(mod)) ClientPrefs.data.modsOptsSaves.set(mod, []);
+							if (!ClientPrefs.data.modsOptsSaves[mod].exists(json.variable)) {
+								if (!Reflect.hasField(json, 'defaultValue')) {
+									var type:String = 'bool';
+									if (Reflect.hasField(json, 'type')) type = json.type;
+									ClientPrefs.data.modsOptsSaves[mod][json.variable] =
+										CoolUtil.getOptionDefVal(type, Reflect.field(json, 'options'));
+								} else {
+									ClientPrefs.data.modsOptsSaves[mod][json.variable] = json.defaultValue;
+								}
+							}
+						}
+					}
+				}
+			}
+			return ClientPrefs.data.modsOptsSaves.toString();
+			#else
+			funk.luaTrace('loadJsonOptions: Platform unsupported for Json Options!', false, false, FlxColor.RED);
+			return false;
+			#end
+		});
+		Lua_helper.add_callback(lua, "getOptionSave", function(variable:String, isJson:Bool = false, ?modName:String = null) {
+			if (!isJson) {
+				return Reflect.getProperty(ClientPrefs.data, variable);
+			} else if (isJson) {
+				#if MODS_ALLOWED
+				if (modName == null) modName = Paths.currentModDirectory;
+				if (ClientPrefs.data.modsOptsSaves.exists(modName) && ClientPrefs.data.modsOptsSaves[modName].exists(variable)) {
+					return ClientPrefs.data.modsOptsSaves[modName][variable];
+				}
+				#else
+				funk.luaTrace('getOptionSave: Platform unsupported for Json Options!', false, false, FlxColor.RED);
+				#end
+			}
+			return null;
+		});
+		Lua_helper.add_callback(lua, "setOptionSave", function(variable:String, value:Dynamic, isJson:Bool = false, ?modName:String = null) {
+			if (!isJson) {
+				Reflect.setProperty(ClientPrefs.data, variable, value);
+				return Reflect.getProperty(ClientPrefs.data, variable) != null ? true : false;
+			} else if (isJson) {
+				#if MODS_ALLOWED
+				if (modName == null) modName = Paths.currentModDirectory;
+				if (ClientPrefs.data.modsOptsSaves.exists(modName) && ClientPrefs.data.modsOptsSaves[modName].exists(variable)) {
+					ClientPrefs.data.modsOptsSaves[modName][variable] = value;
+					return true;
+				}
+				#else
+				funk.luaTrace('setOptionSave: Platform unsupported for Json Options!', false, false, FlxColor.RED);
+				#end
+			}
+			return false;
+		});
+		Lua_helper.add_callback(lua, "saveSettings", function() {
+			ClientPrefs.saveSettings();
+			return true;
 		});
 
 		// File management
