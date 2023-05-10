@@ -119,7 +119,7 @@ class MasterEditorMenu extends MusicBeatState
 				case 'Dialogue Editor':
 					LoadingState.loadAndSwitchState(new DialogueEditorState(), false);
 				case 'Credits Editor':
-					MusicBeatState.switchState(new CreditsEditor());
+					MusicBeatState.switchState(new CreditsEditorState());
 				case 'Chart Editor'://felt it would be cool maybe
 					LoadingState.loadAndSwitchState(new ChartingState(), false);
 			}
