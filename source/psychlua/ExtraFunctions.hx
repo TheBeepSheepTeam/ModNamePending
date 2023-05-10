@@ -387,4 +387,30 @@ class ExtraFunctions
 			return FlxG.random.bool(chance);
 		});
 	}
+
+	 public function luaTrace(text:String, ignoreCheck:Bool = false, deprecated:Bool = false, color:FlxColor = FlxColor.WHITE) {
+	 #if LUA_ALLOWED
+	 if(ignoreCheck || getBool('luaDebugMode')) {
+	 	if(deprecated && !getBool('luaDeprecatedWarnings')) {
+	 		return;
+	 	}
+	 	PlayState.instance.addTextToDebug(text, color);
+	 	trace(text);
+	 }
+	 #end
+    }
+	
+	#if LUA_ALLOWED
+	public function getBool(variable:String) {
+		var result:String = null;
+		Lua.getglobal(lua, variable);
+		result = Convert.fromLua(lua, -1);
+		Lua.pop(lua, 1);
+
+		if(result == null) {
+			return false;
+		}
+		return (result == 'true');
+	}
+	#end
 }
